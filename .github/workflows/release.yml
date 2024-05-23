@@ -22,8 +22,10 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
+            build-tool: cargo
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
+            build-tool: cargo-zigbuild
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +36,7 @@ jobs:
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: energyleaf-pi
+          build-tool: ${{ matrix.build-tool }}
           target: ${{ matrix.target }}
           tar: unix
           include: .env.sample
