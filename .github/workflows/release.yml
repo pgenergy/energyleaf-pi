@@ -1,5 +1,3 @@
-cname: Release
-
 permissions:
   contents: write
 
