@@ -19,7 +19,6 @@ async fn main() {
     let conn_clone = Arc::clone(&conn);
     let (tx, mut rx) = mpsc::channel::<ResponseData>(32);
 
-
     tokio::spawn(async move {
         let conn = conn_clone;
         loop {
@@ -67,7 +66,10 @@ async fn main() {
             }
         };
 
-        if let Err(err) = api::send_data_to_server(consumption, &token, &format!("{}/sensor_input", &admin_url)).await {
+        if let Err(err) =
+            api::send_data_to_server(consumption, &token, &format!("{}/sensor_input", &admin_url))
+                .await
+        {
             println!("{:?}", err);
             if let Err(e) = db::add_log(&err.to_string(), &conn).await {
                 println!("{}", e.to_string())

@@ -1,5 +1,5 @@
-use anyhow::{Error, Result};
 use anyhow::anyhow;
+use anyhow::{Error, Result};
 use chrono::{Duration, Utc};
 use libsql::Connection;
 use mac_address::get_mac_address;
@@ -35,7 +35,7 @@ async fn refresh_token(url: &str) -> Result<String, Error> {
             Some(msg) => Err(anyhow!("{}", msg)),
             None => Err(anyhow!("Error sending data")),
         },
-    }
+    };
 }
 
 pub async fn get_token(url: &str, conn: &Connection) -> Result<String, Error> {
@@ -47,7 +47,7 @@ pub async fn get_token(url: &str, conn: &Connection) -> Result<String, Error> {
             db::update_token(&token, expires_at, conn).await?;
 
             Ok(token)
-        },
+        }
     };
 }
 
