@@ -2,14 +2,16 @@ use anyhow::{Error, Result};
 use anyhow::anyhow;
 use chrono::{Duration, Utc};
 use libsql::Connection;
+use mac_address::get_mac_address;
 use prost::Message;
 
 use crate::{db, proto};
 
 async fn refresh_token(url: &str) -> Result<String, Error> {
+    let client_id = get_client_id()?;
     let mut buf = Vec::new();
     _ = (proto::energyleaf_proto::TokenRequest {
-        client_id: "".to_string(),
+        client_id,
         r#type: 1,
         need_script: Some(false),
     })
@@ -46,5 +48,12 @@ pub async fn get_token(url: &str, conn: &Connection) -> Result<String, Error> {
 
             Ok(token)
         },
+    };
+}
+
+fn get_client_id() -> Result<String, Error> {
+    return match get_mac_address()? {
+        Some(mac) => Ok(mac.to_string()),
+        None => Err(anyhow!("Could not get a mac address")),
     };
 }
