@@ -11,17 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install protoc
-        run: |
-          sudo apt update
-          sudo apt install -y protobuf-compiler
-          echo "PROTOC=/usr/bin/protoc" >> $GITHUB_ENV
-
       - uses: taiki-e/create-gh-release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-        env:
-          PROTOC: ${{ env.PROTOC }}
 
   upload-assets:
     needs: create-release
@@ -35,9 +27,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install protoc
         run: |
-          sudo apt update
-          sudo apt install -y protobuf-compiler
-          echo "PROTOC=/usr/bin/protoc" >> $GITHUB_ENV
+          sudo sh $GITHUB_WORKSPACE/protoc_install.sh
+          echo "PROTOC=/usr/local/bin/protoc" >> $GITHUB_ENV
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: energyleaf-pi
