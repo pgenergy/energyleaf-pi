@@ -18,15 +18,16 @@ jobs:
 
       - name: Install protoc
         run: |
-          sudo apt-get update
-          sudo apt-get install protobuf-compiler
-          echo "PROTOC=/usr/bin/protoc" >> $GITHUB_ENV
+          sudo apt update
+          sudo apt install -y protobuf-compiler
+          cp /usr/bin/protoc $GITHUB_WORKSPACE/protoc
+          chmod +x $GITHUB_WORKSPACE/protoc
 
       - name: Compile and release
         uses: rust-build/rust-build.action@v1.4.5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PROTOC: ${{ env.PROTOC }}
+          PROTOC: ./protoc
         with:
           RUSTTARGET: ${{ matrix.target }}
           ARCHIVE_TYPES: ${{ matrix.archive }}
