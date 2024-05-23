@@ -3,3 +3,6 @@
 
 # Env files
 .env
+
+# DB file
+energyleaf.db

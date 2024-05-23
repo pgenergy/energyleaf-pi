@@ -9,21 +9,27 @@ use crate::proto;
 
 #[derive(Debug, Deserialize)]
 pub struct ResponseData {
-    #[serde(rename = "Time")]
-    pub time: DateTime<Utc>,
-    #[serde(rename = "Haus")]
+    #[serde(rename = "StatusSNS")]
     pub data: Data,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Data {
+    #[serde(rename = "Time")]
+    pub time: DateTime<Utc>,
+    #[serde(rename = "Haus")]
+    pub sensor: SensorData,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SensorData {
     #[serde(rename = "Total_in")]
     pub total_in: f32,
     #[serde(rename = "Total_out")]
     pub total_out: f32,
     #[serde(rename = "Power_curr")]
     pub power_curr: i32,
-    #[serde(rename = "Meter_number")]
+    #[serde(rename = "Meter_Number")]
     pub meter_number: String,
 }
 

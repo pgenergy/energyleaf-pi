@@ -5,7 +5,7 @@ use chrono::{DateTime, Utc};
 use libsql::{Builder, Connection};
 
 pub async fn get_conn() -> Result<Connection, Error> {
-    let db = Builder::new_local("file://energyleaf.db").build().await?;
+    let db = Builder::new_local("./energyleaf.db").build().await?;
     let conn = db.connect()?;
     _ = create_tables(&conn).await?;
 
@@ -16,11 +16,11 @@ async fn create_tables(conn: &Connection) -> Result<(), Error> {
     // create token table
     conn.execute(
         r#"
-                CREATE TABLE IF NOT EXISTS token (
-                    token TEXT NOT NULL PRIMARY KEY,
-                    expires_at DATETIME NOT NULL,
-                )
-            "#,
+            CREATE TABLE IF NOT EXISTS token (
+                token TEXT NOT NULL PRIMARY KEY,
+                expires_at DATETIME NOT NULL
+            )
+        "#,
         (),
     )
     .await?;
