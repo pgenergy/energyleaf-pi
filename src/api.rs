@@ -41,7 +41,7 @@ pub async fn get_data_from_sensor(sensor_url: &str) -> Result<ResponseData, Erro
     return Ok(data);
 }
 
-pub async fn send_data_to_server(value: f32, token: &str) -> Result<(), Error> {
+pub async fn send_data_to_server(value: f32, token: &str, url: &str) -> Result<(), Error> {
     let mut buf = Vec::new();
     _ = (proto::energyleaf_proto::SensorDataRequest {
         access_token: token.to_string(),
@@ -54,7 +54,7 @@ pub async fn send_data_to_server(value: f32, token: &str) -> Result<(), Error> {
 
     let res = proto::energyleaf_proto::SensorDataResponse::decode(
         client
-            .post("")
+            .post(url)
             .header(reqwest::header::CONTENT_TYPE, "application/x-protobuf")
             .body(buf)
             .send()

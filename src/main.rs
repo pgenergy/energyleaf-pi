@@ -28,6 +28,7 @@ async fn main() {
                     _ = tx.send(d).await;
                 }
                 Err(err) => {
+                    println!("{:?}", err);
                     if let Err(e) = db::add_log(&err.to_string(), &conn).await {
                         println!("{}", e.to_string())
                     }
@@ -49,15 +50,16 @@ async fn main() {
         }
 
         if let Err(err) = db::add_sensor_value(consumption.clone(), &conn).await {
+            println!("{:?}", err);
             if let Err(e) = db::add_log(&err.to_string(), &conn).await {
                 println!("{}", e.to_string())
             }
         }
 
-        println!("{}", &consumption);
         let token = match auth::get_token(&format!("{}/token", &admin_url), &conn).await {
             Ok(t) => t,
             Err(err) => {
+                println!("{:?}", err);
                 if let Err(e) = db::add_log(&err.to_string(), &conn).await {
                     println!("{}", e.to_string())
                 }
@@ -65,7 +67,8 @@ async fn main() {
             }
         };
 
-        if let Err(err) = api::send_data_to_server(consumption, &token).await {
+        if let Err(err) = api::send_data_to_server(consumption, &token, &format!("{}/sensor_input", &admin_url)).await {
+            println!("{:?}", err);
             if let Err(e) = db::add_log(&err.to_string(), &conn).await {
                 println!("{}", e.to_string())
             }
