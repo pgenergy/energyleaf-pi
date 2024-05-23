@@ -20,8 +20,8 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y protobuf-compiler
-          cp /usr/bin/protoc $GITHUB_WORKSPACE/protoc
-          chmod +x $GITHUB_WORKSPACE/protoc
+          sudo cp /usr/bin/protoc $GITHUB_WORKSPACE/protoc
+          sudo chmod +x $GITHUB_WORKSPACE/protoc
 
       - name: Compile and release
         uses: rust-build/rust-build.action@v1.4.5
