@@ -33,6 +33,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install protoc
+        run: |
+          sudo apt update
+          sudo apt install -y protobuf-compiler
+          echo "PROTOC=/usr/bin/protoc" >> $GITHUB_ENV
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: energyleaf-pi
@@ -41,3 +46,5 @@ jobs:
           include: .env.sample
           zip: windows
           token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          PROTOC: ${{ env.PROTOC }}
