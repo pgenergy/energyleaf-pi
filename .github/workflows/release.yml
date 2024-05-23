@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install protoc
         run: |
-          sudo sh $GITHUB_WORKSPACE/protoc_install.sh
+          sudo sh $GITHUB_WORKSPACE/protoc-install.sh
           echo "PROTOC=/usr/local/bin/protoc" >> $GITHUB_ENV
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
