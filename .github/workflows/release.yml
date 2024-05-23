@@ -13,11 +13,20 @@ jobs:
             - target: x86_64-unknown-linux-musl
               archive: tar.gz tar.xz tar.zst
     steps:
-      - uses: actions/checkout@master
+      - name: Checkout
+        uses: actions/checkout@master
+
+      - name: Install protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install protobuf-compiler
+          echo "PROTOC=/usr/bin/protoc" >> $GITHUB_ENV
+
       - name: Compile and release
         uses: rust-build/rust-build.action@v1.4.5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROTOC: ${{ env.PROTOC }}
         with:
           RUSTTARGET: ${{ matrix.target }}
           ARCHIVE_TYPES: ${{ matrix.archive }}
