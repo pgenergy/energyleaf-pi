@@ -60,9 +60,7 @@ async fn main() {
                 if let Err(e) = db::add_log(&err.to_string(), &conn).await {
                     println!("{}", e.to_string())
                 }
-                if let Err(_) = save_sensor_value(consumption, outgoing, current, true, &conn).await
-                {
-                }
+                save_sensor_value(consumption, outgoing, current, false, &conn).await.unwrap_or(());
                 continue;
             }
         };
@@ -77,19 +75,14 @@ async fn main() {
         .await
         {
             Ok(_) => {
-                if let Err(_) = save_sensor_value(consumption, outgoing, current, true, &conn).await
-                {
-                }
+                save_sensor_value(consumption, outgoing, current, true, &conn).await.unwrap_or(());
             }
             Err(err) => {
                 println!("{:?}", err);
                 if let Err(e) = db::add_log(&err.to_string(), &conn).await {
                     println!("{}", e.to_string())
                 }
-                if let Err(_) =
-                    save_sensor_value(consumption, outgoing, current, false, &conn).await
-                {
-                }
+                save_sensor_value(consumption, outgoing, current, false, &conn).await.unwrap_or(());
             }
         }
     }
