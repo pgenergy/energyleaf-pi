@@ -1,7 +1,9 @@
+use anyhow::{Error, Result};
 use std::{env, sync::Arc, time::Duration};
 
 use crate::api::ResponseData;
 use dotenvy::dotenv;
+use libsql::Connection;
 use tokio::{sync::mpsc, time::sleep};
 
 mod api;
@@ -40,19 +42,15 @@ async fn main() {
 
     while let Some(data) = rx.recv().await {
         let consumption = data.data.sensor.total_in;
+        let outgoing = data.data.sensor.total_out;
+        let current = data.data.sensor.power_curr;
+
         if consumption <= 0.0 {
             if let Err(e) = db::add_log(&"Consumption is zero value", &conn).await {
                 println!("{}", e.to_string())
             }
 
             return;
-        }
-
-        if let Err(err) = db::add_sensor_value(consumption.clone(), &conn).await {
-            println!("{:?}", err);
-            if let Err(e) = db::add_log(&err.to_string(), &conn).await {
-                println!("{}", e.to_string())
-            }
         }
 
         let token = match auth::get_token(&format!("{}/token", &admin_url), &conn).await {
@@ -62,18 +60,55 @@ async fn main() {
                 if let Err(e) = db::add_log(&err.to_string(), &conn).await {
                     println!("{}", e.to_string())
                 }
+                if let Err(_) = save_sensor_value(consumption, outgoing, current, true, &conn).await
+                {
+                }
                 continue;
             }
         };
 
-        if let Err(err) =
-            api::send_data_to_server(consumption, &token, &format!("{}/sensor_input", &admin_url))
-                .await
+        match api::send_data_to_server(
+            consumption,
+            outgoing,
+            current,
+            &token,
+            &format!("{}/sensor_input", &admin_url),
+        )
+        .await
         {
-            println!("{:?}", err);
-            if let Err(e) = db::add_log(&err.to_string(), &conn).await {
-                println!("{}", e.to_string())
+            Ok(_) => {
+                if let Err(_) = save_sensor_value(consumption, outgoing, current, true, &conn).await
+                {
+                }
+            }
+            Err(err) => {
+                println!("{:?}", err);
+                if let Err(e) = db::add_log(&err.to_string(), &conn).await {
+                    println!("{}", e.to_string())
+                }
+                if let Err(_) =
+                    save_sensor_value(consumption, outgoing, current, false, &conn).await
+                {
+                }
             }
         }
     }
+}
+
+async fn save_sensor_value(
+    value_in: f64,
+    value_out: f64,
+    value_current: f64,
+    synced: bool,
+    conn: &Connection,
+) -> Result<(), Error> {
+    if let Err(err) = db::add_sensor_value(value_in, value_out, value_current, synced, &conn).await
+    {
+        println!("{:?}", err);
+        if let Err(e) = db::add_log(&err.to_string(), &conn).await {
+            println!("{}", e.to_string())
+        }
+    }
+
+    return Ok(());
 }

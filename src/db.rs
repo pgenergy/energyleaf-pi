@@ -31,7 +31,9 @@ async fn create_tables(conn: &Connection) -> Result<(), Error> {
             CREATE TABLE IF NOT EXISTS data (
                 id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                 timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                value NUMERIC(12, 4) NOT NULL
+                value NUMERIC(12, 4) NOT NULL,
+                synced BOOLEAN NOT NULL DEFAULT FALSE,
+                value_type TEXT NOT NULL
             )
         "#,
         (),
@@ -41,12 +43,12 @@ async fn create_tables(conn: &Connection) -> Result<(), Error> {
     // create log table
     conn.execute(
         r#"
-                CREATE TABLE IF NOT EXISTS logs (
-                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-                    timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    log TEXT NOT NULL
-                )
-            "#,
+            CREATE TABLE IF NOT EXISTS logs (
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                log TEXT NOT NULL
+            )
+        "#,
         (),
     )
     .await?;
@@ -54,15 +56,48 @@ async fn create_tables(conn: &Connection) -> Result<(), Error> {
     return Ok(());
 }
 
-pub async fn add_sensor_value(value: f32, conn: &Connection) -> Result<(), Error> {
-    let mut stmn = conn
-        .prepare(
-            r#"
-            INSERT INTO data (value) VALUES (?1)
+pub async fn add_sensor_value(
+    value_in: f64,
+    value_out: f64,
+    value_current: f64,
+    synced: bool,
+    conn: &Connection,
+) -> Result<(), Error> {
+    let tx = conn.transaction().await?;
+    let synced_value = if synced { 1.0 } else { 0.0 };
+    tx.execute(
+        r#"
+            INSERT INTO data (value, synced, value_type) VALUES (?1, ?2, ?3)
         "#,
-        )
-        .await?;
-    stmn.execute([value]).await?;
+        (value_in, synced_value, "in"),
+    )
+    .await?;
+    tx.execute(
+        r#"
+            INSERT INTO data (value, synced, value_type) VALUES (?1, ?2, ?3)
+        "#,
+        (value_out, synced_value, "out"),
+    )
+    .await?;
+    tx.execute(
+        r#"
+            INSERT INTO data (value, synced, value_type) VALUES (?1, ?2, ?3)
+        "#,
+        (value_current, synced_value, "curr"),
+    )
+    .await?;
+    tx.commit().await?;
+
+    // delete oldest value if data has more than 10 million entries
+    conn.execute(
+        r#"
+            DELETE FROM data
+            WHERE timestamp = (SELECT MIN(timestamp) FROM data)
+            AND (SELECT COUNT(*) FROM data) > 10000000;
+        "#,
+        (),
+    )
+    .await?;
 
     return Ok(());
 }
@@ -71,8 +106,8 @@ pub async fn add_log(value: &str, conn: &Connection) -> Result<(), Error> {
     let mut stmn = conn
         .prepare(
             r#"
-            INSERT INTO logs (log) VALUES (?1)
-        "#,
+                INSERT INTO logs (log) VALUES (?1)
+            "#,
         )
         .await?;
     stmn.execute([value]).await?;
