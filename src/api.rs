@@ -26,9 +26,9 @@ pub struct SensorData {
     #[serde(rename = "Total_in")]
     pub total_in: f64,
     #[serde(rename = "Total_out")]
-    pub total_out: f64,
+    pub total_out: Option<f64>,
     #[serde(rename = "Power_curr")]
-    pub power_curr: f64,
+    pub power_curr: Option<f64>,
     #[serde(rename = "Meter_Number")]
     pub meter_number: String,
 }
@@ -43,18 +43,30 @@ pub async fn get_data_from_sensor(sensor_url: &str) -> Result<ResponseData, Erro
 
 pub async fn send_data_to_server(
     value_in: f64,
-    value_out: f64,
-    value_current: f64,
+    value_out: Option<f64>,
+    value_current: Option<f64>,
+    timestamp: Option<DateTime<Utc>>,
     token: &str,
     url: &str,
 ) -> Result<(), Error> {
     let mut buf = Vec::new();
+    let timestamp_value = match timestamp {
+        Some(t) => {
+            let value = t.timestamp_nanos_opt();
+            match value {
+                Some(v) => Some(v as u64),
+                None => None,
+            }
+        }
+        None => None,
+    };
     _ = (proto::energyleaf_proto::SensorDataRequest {
         access_token: token.to_string(),
-        r#type: 1,
+        r#type: proto::energyleaf_proto::SensorType::DigitalElectricity as i32,
         value: value_in,
-        value_out: Some(value_out),
-        value_current: Some(value_current),
+        value_out,
+        value_current,
+        timestamp: timestamp_value,
     })
     .encode(&mut buf)?;
 
