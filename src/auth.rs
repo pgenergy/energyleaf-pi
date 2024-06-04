@@ -1,9 +1,9 @@
 use anyhow::anyhow;
 use anyhow::{Error, Result};
 use chrono::{Duration, Utc};
+use energyleaf_proto::prost::Message;
 use libsql::Connection;
 use mac_address::get_mac_address;
-use prost::Message;
 
 use crate::db;
 

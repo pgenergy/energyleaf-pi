@@ -406,7 +406,6 @@ dependencies = [
  "libsql",
  "mac_address",
  "openssl",
- "prost",
  "reqwest",
  "serde",
  "serde_json",
@@ -415,9 +414,9 @@ dependencies = [
 
 [[package]]
 name = "energyleaf-proto"
-version = "0.1.5"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "871c972a2bac6221ca763a89bd620ce1e77ba00ffd9a3176db7954c33159288d"
+checksum = "347eb27962a1875a85c9b9171cf5ab93b60686ea57544e7ce4b96f42cd3de2cb"
 dependencies = [
  "prost",
  "prost-build",

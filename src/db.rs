@@ -189,8 +189,9 @@ pub async fn mark_data_as_synced(id: i32, conn: &Connection) -> Result<(), Error
             SET synced = 1
             WHERE id = ?1
         "#,
-        params![id]
-    ).await?;
+        params![id],
+    )
+    .await?;
 
     return Ok(());
 }

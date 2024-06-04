@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use anyhow::{Error, Result};
 use chrono::DateTime;
 use chrono::Utc;
-use prost::Message;
+use energyleaf_proto::prost::Message;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]

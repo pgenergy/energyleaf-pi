@@ -72,7 +72,7 @@ async fn main() {
                     }
                 }
             }
-            sleep(Duration::from_secs(60*60)).await
+            sleep(Duration::from_secs(60 * 60)).await
         }
     });
 
