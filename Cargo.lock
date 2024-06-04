@@ -402,15 +402,25 @@ dependencies = [
  "anyhow",
  "chrono",
  "dotenvy",
+ "energyleaf-proto",
  "libsql",
  "mac_address",
  "openssl",
  "prost",
- "prost-build",
  "reqwest",
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "energyleaf-proto"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "871c972a2bac6221ca763a89bd620ce1e77ba00ffd9a3176db7954c33159288d"
+dependencies = [
+ "prost",
+ "prost-build",
 ]
 
 [[package]]

@@ -5,12 +5,12 @@ use libsql::Connection;
 use mac_address::get_mac_address;
 use prost::Message;
 
-use crate::{db, proto};
+use crate::db;
 
 async fn refresh_token(url: &str) -> Result<String, Error> {
     let client_id = get_client_id()?;
     let mut buf = Vec::new();
-    _ = (proto::energyleaf_proto::TokenRequest {
+    _ = (energyleaf_proto::TokenRequest {
         client_id,
         r#type: 1,
         need_script: Some(false),
@@ -18,7 +18,7 @@ async fn refresh_token(url: &str) -> Result<String, Error> {
     .encode(&mut buf);
 
     let client = reqwest::Client::new();
-    let res = proto::energyleaf_proto::TokenResponse::decode(
+    let res = energyleaf_proto::TokenResponse::decode(
         client
             .post(url)
             .header(reqwest::header::CONTENT_TYPE, "application/x-protobuf")

@@ -5,8 +5,6 @@ use chrono::Utc;
 use prost::Message;
 use serde::Deserialize;
 
-use crate::proto;
-
 #[derive(Debug, Deserialize)]
 pub struct ResponseData {
     #[serde(rename = "StatusSNS")]
@@ -60,9 +58,9 @@ pub async fn send_data_to_server(
         }
         None => None,
     };
-    _ = (proto::energyleaf_proto::SensorDataRequest {
+    _ = (energyleaf_proto::SensorDataRequest {
         access_token: token.to_string(),
-        r#type: proto::energyleaf_proto::SensorType::DigitalElectricity as i32,
+        r#type: energyleaf_proto::SensorType::DigitalElectricity as i32,
         value: value_in,
         value_out,
         value_current,
@@ -72,7 +70,7 @@ pub async fn send_data_to_server(
 
     let client = reqwest::Client::new();
 
-    let res = proto::energyleaf_proto::SensorDataResponse::decode(
+    let res = energyleaf_proto::SensorDataResponse::decode(
         client
             .post(url)
             .header(reqwest::header::CONTENT_TYPE, "application/x-protobuf")

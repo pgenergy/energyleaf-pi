@@ -10,7 +10,6 @@ use tokio::{sync::mpsc, time::sleep};
 mod api;
 mod auth;
 mod db;
-mod proto;
 
 #[tokio::main]
 async fn main() {
