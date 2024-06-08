@@ -397,7 +397,7 @@ dependencies = [
 
 [[package]]
 name = "energyleaf-pi"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -414,10 +414,11 @@ dependencies = [
 
 [[package]]
 name = "energyleaf-proto"
-version = "0.1.6"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "347eb27962a1875a85c9b9171cf5ab93b60686ea57544e7ce4b96f42cd3de2cb"
+checksum = "88a267eccfe06cc80b2304196366a4b909149b1c09719d6e4d3c94173cdbefa3"
 dependencies = [
+ "glob",
  "prost",
  "prost-build",
 ]

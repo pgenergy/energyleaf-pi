@@ -58,9 +58,9 @@ pub async fn send_data_to_server(
         }
         None => None,
     };
-    _ = (energyleaf_proto::SensorDataRequest {
+    _ = (energyleaf_proto::energyleaf::SensorDataRequest {
         access_token: token.to_string(),
-        r#type: energyleaf_proto::SensorType::DigitalElectricity as i32,
+        r#type: energyleaf_proto::energyleaf::SensorType::DigitalElectricity as i32,
         value: value_in,
         value_out,
         value_current,
@@ -70,7 +70,7 @@ pub async fn send_data_to_server(
 
     let client = reqwest::Client::new();
 
-    let res = energyleaf_proto::SensorDataResponse::decode(
+    let res = energyleaf_proto::energyleaf::SensorDataResponse::decode(
         client
             .post(url)
             .header(reqwest::header::CONTENT_TYPE, "application/x-protobuf")
