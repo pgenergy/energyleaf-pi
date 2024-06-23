@@ -27,8 +27,6 @@ pub struct SensorData {
     pub total_out: Option<f64>,
     #[serde(rename = "Power_curr")]
     pub power_curr: Option<f64>,
-    #[serde(rename = "Meter_Number")]
-    pub meter_number: String,
 }
 
 pub async fn get_data_from_sensor(sensor_url: &str) -> Result<ResponseData, Error> {

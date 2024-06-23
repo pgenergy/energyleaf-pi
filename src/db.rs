@@ -144,14 +144,11 @@ pub async fn get_local_token(conn: &Connection) -> Result<Option<String>, Error>
     }
 }
 
-#[derive(Debug)]
 pub struct DBData {
     pub id: i32,
     pub timestamp: DateTime<Utc>,
     pub value: f64,
     pub value_out: Option<f64>,
-    pub value_current: Option<f64>,
-    pub synced: bool,
 }
 
 pub async fn get_unsync_entries(conn: &Connection) -> Result<Vec<DBData>, Error> {
@@ -173,8 +170,6 @@ pub async fn get_unsync_entries(conn: &Connection) -> Result<Vec<DBData>, Error>
             timestamp: DateTime::<Utc>::from_str(&row.get::<String>(1)?)?,
             value: row.get::<f64>(2)?,
             value_out: row.get::<Option<f64>>(3)?,
-            value_current: row.get::<Option<f64>>(4)?,
-            synced: row.get(5)?,
         };
         db_data.push(data);
     }

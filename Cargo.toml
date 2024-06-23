@@ -1,6 +1,6 @@
 [package]
 name = "energyleaf-pi"
-version = "0.4.2"
+version = "0.4.3"
 edition = "2021"
 
 [dependencies]
@@ -14,4 +14,4 @@ dotenvy = "0.15.7"
 libsql = "0.3.5"
 mac_address = "1.1.7"
 openssl = { version = "0.10", features = ["vendored"] }
-energyleaf-proto = "0.2.1"
+energyleaf-proto = "0.2.2"
