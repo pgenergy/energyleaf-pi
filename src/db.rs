@@ -4,55 +4,63 @@ use anyhow::{Error, Result};
 use chrono::{DateTime, Utc};
 use libsql::{params, Builder, Connection};
 
+mod migrations {
+    include!(concat!(env!("OUT_DIR"), "/migrations.rs"));
+}
+
 pub async fn get_conn() -> Result<Connection, Error> {
     let db = Builder::new_local("./energyleaf.db").build().await?;
     let conn = db.connect()?;
-    _ = create_tables(&conn).await?;
+    _ = create_migration_table(&conn).await?;
+    _ = run_migration(&conn).await?;
 
     return Ok(conn);
 }
 
-async fn create_tables(conn: &Connection) -> Result<(), Error> {
-    // create token table
+async fn create_migration_table(conn: &Connection) -> Result<(), Error> {
     conn.execute(
         r#"
-            CREATE TABLE IF NOT EXISTS token (
-                token TEXT NOT NULL PRIMARY KEY,
-                expires_at DATETIME NOT NULL
+            CREATE TABLE IF NOT EXISTS __migrations (
+                id TEXT NOT NULL PRIMARY KEY,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         "#,
         (),
     )
     .await?;
 
-    // create sensor table
-    conn.execute(
-        r#"
-            CREATE TABLE IF NOT EXISTS data (
-                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-                timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                value NUMERIC(30, 6) NOT NULL,
-                value_out NUMERIC(30,6),
-                value_current NUMERIC(30,6),
-                synced BOOLEAN NOT NULL DEFAULT FALSE
-            )
-        "#,
-        (),
-    )
-    .await?;
+    return Ok(());
+}
 
-    // create log table
-    conn.execute(
-        r#"
-            CREATE TABLE IF NOT EXISTS logs (
-                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-                timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                log TEXT NOT NULL
-            )
-        "#,
-        (),
-    )
-    .await?;
+async fn run_migration(conn: &Connection) -> Result<(), Error> {
+    let migrations = migrations::get_migrations();
+    let mut executed_migrations: Vec<String> = vec![];
+
+    let mut rows = conn.query("SELECT * FROM __migrations", ()).await?;
+    match rows.next().await? {
+        Some(row) => {
+            let name = row.get::<String>(0)?;
+            executed_migrations.push(name);
+        }
+        None => {}
+    }
+
+    let trx = conn.transaction().await?;
+    for (name, migration) in migrations {
+        if executed_migrations.contains(&name) {
+            continue;
+        }
+
+        trx.execute_batch(&migration).await?;
+        trx.execute(
+            r#"
+                INSERT INTO __migrations (id) VALUES (?1)
+            "#,
+            params![name],
+        )
+        .await?;
+    }
+    trx.commit().await?;
 
     return Ok(());
 }
