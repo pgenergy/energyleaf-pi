@@ -5,10 +5,13 @@ fn main() {
     let dest_path = PathBuf::from(out_dir).join("migrations.rs");
 
     let mut migrations: HashMap<String, String> = HashMap::new();
-    let entries = std::fs::read_dir("./migrations").unwrap();
+    let mut entries: Vec<_> = std::fs::read_dir("./migrations")
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    entries.sort_by_key(|e| e.file_name());
 
     for entry in entries {
-        let entry = entry.unwrap();
         let path = entry.path();
 
         if path.extension().and_then(|s| s.to_str()) == Some("sql") {
