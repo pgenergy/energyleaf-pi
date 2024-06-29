@@ -56,7 +56,7 @@ pub async fn send_data_to_server(
         }
         None => None,
     };
-    _ = (energyleaf_proto::energyleaf::SensorDataRequest {
+    _ = (energyleaf_proto::energyleaf::SensorDataRequestV2 {
         access_token: token.to_string(),
         r#type: energyleaf_proto::energyleaf::SensorType::DigitalElectricity as i32,
         value: value_in,
