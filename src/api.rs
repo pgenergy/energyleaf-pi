@@ -3,36 +3,58 @@ use anyhow::{Error, Result};
 use chrono::DateTime;
 use chrono::Utc;
 use energyleaf_proto::prost::Message;
-use serde::Deserialize;
+use serde_json::Value;
 
-#[derive(Debug, Deserialize)]
-pub struct ResponseData {
-    #[serde(rename = "StatusSNS")]
-    pub data: Data,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Data {
-    #[serde(rename = "Time")]
-    pub time: DateTime<Utc>,
-    #[serde(rename = "Haus")]
-    pub sensor: SensorData,
-}
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub struct SensorData {
-    #[serde(rename = "Total_in")]
     pub total_in: f64,
-    #[serde(rename = "Total_out")]
     pub total_out: Option<f64>,
-    #[serde(rename = "Power_curr")]
     pub power_curr: Option<f64>,
 }
 
-pub async fn get_data_from_sensor(sensor_url: &str) -> Result<ResponseData, Error> {
+fn extract_data(value: &Value, data: &mut SensorData) -> Result<(), Error> {
+    match value {
+        Value::Object(map) => {
+            for (key, value) in map {
+                if key.as_str() == "Total_in" {
+                    let parsed_value = value
+                        .as_f64()
+                        .ok_or(anyhow!("Could not parse total in value"))?;
+                    data.total_in = parsed_value;
+                } else if key.as_str() == "Total_out" {
+                    let parsed_value = value
+                        .as_f64()
+                        .ok_or(anyhow!("Could not parse total out value"))?;
+                    data.total_out = Some(parsed_value);
+                } else if key.as_str() == "Power_curr" {
+                    let parsed_value = value
+                        .as_f64()
+                        .ok_or(anyhow!("Could not parse power curr value"))?;
+                    data.power_curr = Some(parsed_value);
+                } else {
+                    extract_data(value, data)?;
+                }
+            }
+        }
+        Value::Array(arr) => {
+            for value in arr {
+                extract_data(value, data)?;
+            }
+        }
+        _ => {}
+    }
+    return Ok(());
+}
+
+pub async fn get_data_from_sensor(sensor_url: &str) -> Result<SensorData, Error> {
     let client = reqwest::Client::new();
     let res = client.get(sensor_url).send().await?;
-    let data = serde_json::from_value::<ResponseData>(res.json().await?)?;
+    let mut data = SensorData {
+        total_in: 0.0,
+        total_out: None,
+        power_curr: None,
+    };
+    extract_data(&res.json().await?, &mut data)?;
 
     return Ok(data);
 }

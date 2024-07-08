@@ -1,8 +1,8 @@
 use anyhow::{Error, Result};
+use api::SensorData;
 use chrono::{DateTime, Utc};
 use std::{env, sync::Arc, time::Duration};
 
-use crate::api::ResponseData;
 use dotenvy::dotenv;
 use libsql::Connection;
 use tokio::{sync::mpsc, time::sleep};
@@ -21,7 +21,7 @@ async fn main() {
     let conn = Arc::new(db::get_conn().await.expect("Could not connect to db"));
     let conn_req = Arc::clone(&conn);
     let conn_sync = Arc::clone(&conn);
-    let (tx, mut rx) = mpsc::channel::<ResponseData>(32);
+    let (tx, mut rx) = mpsc::channel::<SensorData>(32);
 
     tokio::spawn(async move {
         let conn = conn_req;
@@ -77,10 +77,10 @@ async fn main() {
     });
 
     while let Some(data) = rx.recv().await {
-        let consumption = data.data.sensor.total_in;
-        let outgoing = data.data.sensor.total_out;
-        let current = data.data.sensor.power_curr;
-        let time = data.data.time;
+        let consumption = data.total_in;
+        let outgoing = data.total_out;
+        let current = data.power_curr;
+        let time = chrono::Utc::now();
 
         process_data(
             consumption,
