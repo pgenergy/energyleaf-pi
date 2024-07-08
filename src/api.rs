@@ -16,17 +16,18 @@ fn extract_data(value: &Value, data: &mut SensorData) -> Result<(), Error> {
     match value {
         Value::Object(map) => {
             for (key, value) in map {
-                if key.as_str() == "Total_in" {
+                let key = (key.as_str()).to_lowercase();
+                if key == "total_in" || key == "energyleaf_kwh" {
                     let parsed_value = value
                         .as_f64()
                         .ok_or(anyhow!("Could not parse total in value"))?;
                     data.total_in = parsed_value;
-                } else if key.as_str() == "Total_out" {
+                } else if key == "total_out" || key == "energyleaf_out" {
                     let parsed_value = value
                         .as_f64()
                         .ok_or(anyhow!("Could not parse total out value"))?;
                     data.total_out = Some(parsed_value);
-                } else if key.as_str() == "Power_curr" {
+                } else if key == "power_curr" || key == "energyleaf_current" {
                     let parsed_value = value
                         .as_f64()
                         .ok_or(anyhow!("Could not parse power curr value"))?;
