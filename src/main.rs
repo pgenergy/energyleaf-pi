@@ -61,7 +61,11 @@ async fn main() {
                         .await;
 
                         if synced {
-                            db::mark_data_as_synced(entry.id, &conn).await.unwrap_or(());
+                            if let Err(_) = db::mark_data_as_synced(entry.id, &conn).await {
+                                db::increase_sync_retry_count(entry.id, &conn)
+                                    .await
+                                    .unwrap_or(());
+                            };
                         }
                     }
                 }

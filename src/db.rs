@@ -198,3 +198,44 @@ pub async fn mark_data_as_synced(id: i32, conn: &Connection) -> Result<(), Error
 
     return Ok(());
 }
+
+pub async fn increase_sync_retry_count(id: i32, conn: &Connection) -> Result<(), Error> {
+    let trx = conn.transaction().await?;
+    let mut rows = trx
+        .query(
+            r#"
+            SELECT sync_retry
+            FROM data
+            WHERE id = ?1
+        "#,
+            params![id],
+        )
+        .await?;
+
+    while let Ok(Some(row)) = rows.next().await {
+        let sync_retry = row.get::<i32>(0)?;
+        if (sync_retry + 1) > 24 {
+            trx.execute(
+                r#"
+                    DELETE FROM data
+                    WHERE id = ?1
+                "#,
+                params![id],
+            )
+            .await?;
+        } else {
+            trx.execute(
+                r#"
+                    UPDATE data
+                    SET sync_retry = ?2
+                    WHERE id = ?1
+                "#,
+                params![id, sync_retry + 1],
+            )
+            .await?;
+        }
+    }
+    trx.commit().await?;
+
+    return Ok(());
+}
