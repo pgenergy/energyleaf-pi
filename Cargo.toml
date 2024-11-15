@@ -16,3 +16,7 @@ libsql = "0.3.5"
 mac_address = "1.1.7"
 openssl = { version = "0.10", features = ["vendored"] }
 energyleaf-proto = "1.0.1"
+energyleaf-coordpi = {git = "ssh://git@github.com/SlepiK/energyleaf-coordpi.git", branch = "development"}
+log = "0.4.22"
+env_logger = "0.11.5"
+tokio-serial = "5.4.4"

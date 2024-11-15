@@ -1,11 +1,13 @@
 use anyhow::{Error, Result};
 use api::SensorData;
 use chrono::{DateTime, Utc};
-use std::{env, sync::Arc, time::Duration};
-
 use dotenvy::dotenv;
 use libsql::Connection;
+use log::{debug, info};
+use std::{env, io, sync::Arc, time::Duration};
+use tokio::io::AsyncReadExt;
 use tokio::{sync::mpsc, time::sleep};
+use tokio_serial::SerialPortBuilderExt;
 
 mod api;
 mod auth;
@@ -14,71 +16,123 @@ mod db;
 #[tokio::main]
 async fn main() {
     dotenv().expect("Cant find env file");
+    env_logger::init();
     let sensor_url = env::var("SENSOR_URL").expect("SENSOR_URL must be set");
     let admin_url = Arc::new(env::var("ADMIN_URL").expect("ADMIN_URL must be set"));
     let admin_url_clone = admin_url.clone();
+    let coordinator_enable =
+        env::var("COORDINATOR_ENABLE").expect("COORDINATOR_ENABLE must be set");
 
     let conn = Arc::new(db::get_conn().await.expect("Could not connect to db"));
     let conn_req = Arc::clone(&conn);
     let conn_sync = Arc::clone(&conn);
     let (tx, mut rx) = mpsc::channel::<SensorData>(32);
 
-    tokio::spawn(async move {
-        let conn = conn_req;
-        loop {
-            match api::get_data_from_sensor(&sensor_url).await {
-                Ok(d) => {
-                    _ = tx.send(d).await;
-                }
-                Err(err) => {
-                    println!("{:?}", err);
-                    if let Err(e) = db::add_log(&err.to_string(), &conn).await {
-                        println!("{}", e.to_string())
-                    }
-                }
-            };
+    if &coordinator_enable == "true" {
+        let mut port = tokio_serial::new("/dev/ttyAMA1", 9600)
+            .open_native_async()
+            .unwrap();
 
-            sleep(Duration::from_secs(15)).await
-        }
-    });
+        tokio::spawn(async move {
+            let mut incoming_command_message = vec![];
+            let mut incoming_command_message_buffer = vec![0u8; 16];
+            loop {
+                match port.read(&mut incoming_command_message_buffer).await {
+                    Ok(t) => {
+                        if t > 0 {
+                            debug!(
+                                "Incoming message (UART): {:?}",
+                                &incoming_command_message_buffer[..t]
+                            );
 
-    tokio::spawn(async move {
-        let conn = conn_sync;
-        let admin_url = admin_url_clone;
-        loop {
-            match db::get_unsync_entries(&conn).await {
-                Ok(d) => {
-                    for entry in d {
-                        let synced = process_data(
-                            entry.value,
-                            entry.value_out,
-                            entry.value_out,
-                            entry.timestamp,
-                            true,
-                            &admin_url,
-                            &conn,
-                        )
-                        .await;
-
-                        if synced {
-                            if let Err(_) = db::mark_data_as_synced(entry.id, &conn).await {
-                                db::increase_sync_retry_count(entry.id, &conn)
-                                    .await
-                                    .unwrap_or(());
-                            };
+                            if incoming_command_message_buffer[..t]
+                                .eq(&energyleaf_coordpi::command::COMMAND_MESSAGE_END)
+                            {
+                                let remaining = incoming_command_message[0] as usize;
+                                let end_index = incoming_command_message.len() - remaining;
+                                let command = energyleaf_coordpi::command::Command::from_cbor(
+                                    &incoming_command_message[1..end_index],
+                                );
+                                info!("Command (converted incoming message): {:?}", &command);
+                                incoming_command_message.clear();
+                            } else {
+                                incoming_command_message
+                                    .append(&mut incoming_command_message_buffer);
+                                incoming_command_message_buffer.resize(16, 0u8);
+                            }
                         }
                     }
-                }
-                Err(err) => {
-                    println!("{:?}", err);
-                    if let Err(e) = db::add_log(&err.to_string(), &conn).await {
-                        println!("{}", e.to_string())
+                    Err(ref e) if e.kind() == io::ErrorKind::TimedOut => {
+                        ();
+                    }
+                    Err(e) => {
+                        eprintln!("{:?}", e);
                     }
                 }
             }
-            sleep(Duration::from_secs(60 * 60)).await
-        }
-    });
+        });
+    }
+
+    if &sensor_url != "localhost" {
+        tokio::spawn(async move {
+            let conn = conn_req;
+            loop {
+                match api::get_data_from_sensor(&sensor_url).await {
+                    Ok(d) => {
+                        _ = tx.send(d).await;
+                    }
+                    Err(err) => {
+                        println!("{:?}", err);
+                        if let Err(e) = db::add_log(&err.to_string(), &conn).await {
+                            println!("{}", e.to_string())
+                        }
+                    }
+                };
+
+                sleep(Duration::from_secs(15)).await
+            }
+        });
+    }
+
+    if admin_url_clone.as_str() != "localhost/api/v1" && admin_url_clone.as_str() != "localhost" {
+        tokio::spawn(async move {
+            let conn = conn_sync;
+            let admin_url = admin_url_clone;
+            loop {
+                match db::get_unsync_entries(&conn).await {
+                    Ok(d) => {
+                        for entry in d {
+                            let synced = process_data(
+                                entry.value,
+                                entry.value_out,
+                                entry.value_out,
+                                entry.timestamp,
+                                true,
+                                &admin_url,
+                                &conn,
+                            )
+                            .await;
+
+                            if synced {
+                                if let Err(_) = db::mark_data_as_synced(entry.id, &conn).await {
+                                    db::increase_sync_retry_count(entry.id, &conn)
+                                        .await
+                                        .unwrap_or(());
+                                };
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        println!("{:?}", err);
+                        if let Err(e) = db::add_log(&err.to_string(), &conn).await {
+                            println!("{}", e.to_string())
+                        }
+                    }
+                }
+                sleep(Duration::from_secs(60 * 60)).await
+            }
+        });
+    }
 
     while let Some(data) = rx.recv().await {
         let consumption = data.total_in;

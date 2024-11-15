@@ -37,12 +37,8 @@ async fn run_migration(conn: &Connection) -> Result<(), Error> {
     let mut executed_migrations: Vec<String> = vec![];
 
     let mut rows = conn.query("SELECT * FROM __migrations", ()).await?;
-    match rows.next().await? {
-        Some(row) => {
-            let name = row.get::<String>(0)?;
-            executed_migrations.push(name);
-        }
-        None => {}
+    while let Some(row) = rows.next().await? {
+        executed_migrations.push(row.get::<String>(0)?);
     }
 
     let trx = conn.transaction().await?;
