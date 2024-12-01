@@ -2,8 +2,11 @@ use anyhow::{Error, Result};
 use api::SensorData;
 use chrono::{DateTime, Utc};
 use dotenvy::dotenv;
+use energyleaf_coordpi::command::{
+    Command, CommandToPiType, DevicePayload, DeviceType, ElectricityDigitalPayload,
+};
 use libsql::Connection;
-use log::{debug, info};
+use log::debug;
 use std::{env, io, sync::Arc, time::Duration};
 use tokio::io::AsyncReadExt;
 use tokio::{sync::mpsc, time::sleep};
@@ -12,6 +15,10 @@ use tokio_serial::SerialPortBuilderExt;
 mod api;
 mod auth;
 mod db;
+
+//following const maybe set directly in an interface on the pi ?
+const KWH_PER_ANALOG_ELECTRICITY_ROTATION: f64 = 0.0f64;
+const KWH_PER_GAS_ROTATION: f64 = 0.0f64;
 
 #[tokio::main]
 async fn main() {
@@ -26,16 +33,27 @@ async fn main() {
     let conn = Arc::new(db::get_conn().await.expect("Could not connect to db"));
     let conn_req = Arc::clone(&conn);
     let conn_sync = Arc::clone(&conn);
+    let conn_coord = Arc::clone(&conn);
     let (tx, mut rx) = mpsc::channel::<SensorData>(32);
+    let tx_coord = tx.clone();
 
     if &coordinator_enable == "true" {
+        //dev/ttyAMA1 is used from a pi (changing code to allow the user to define it by the .env file, is easy)
         let mut port = tokio_serial::new("/dev/ttyAMA1", 9600)
             .open_native_async()
             .unwrap();
 
         tokio::spawn(async move {
+            let conn = conn_coord;
+            let tx = tx_coord;
             let mut incoming_command_message = vec![];
             let mut incoming_command_message_buffer = vec![0u8; 16];
+            //EnergyDataRequest
+            let mut last_digitial_electricity_reading = api::SensorData {
+                total_in: 0.0,
+                total_out: None,
+                power_curr: None,
+            };
             loop {
                 match port.read(&mut incoming_command_message_buffer).await {
                     Ok(t) => {
@@ -50,10 +68,79 @@ async fn main() {
                             {
                                 let remaining = incoming_command_message[0] as usize;
                                 let end_index = incoming_command_message.len() - remaining;
-                                let command = energyleaf_coordpi::command::Command::from_cbor(
+                                let opt_command = energyleaf_coordpi::command::Command::from_cbor(
                                     &incoming_command_message[1..end_index],
                                 );
-                                info!("Command (converted incoming message): {:?}", &command);
+
+                                if let Some(cmd) = opt_command {
+                                    match cmd {
+                                        Command::ToCoordinator { .. } => {}
+                                        Command::ToPi { cmd_to_pi, .. } => {
+                                            //src is the zigbee u16 identifier from the sensor, can be maybe useful
+
+                                            match cmd_to_pi {
+                                                CommandToPiType::NewDeviceConnected { .. } => {
+                                                    //payload contains the manufacturer and model of the new connected or reconnected device
+                                                }
+                                                CommandToPiType::NewValue { device_type } => {
+                                                    match device_type {
+                                                        DeviceType::GasAnalog => {
+                                                            //one rotation of gas meter
+                                                            let value = KWH_PER_GAS_ROTATION;
+                                                            //ToDo: add a way for gas, for sending and saving
+                                                        }
+                                                        DeviceType::ElectricityAnalog => {
+                                                            //one rotation of analog electricity meter
+                                                            _ = tx.send(api::SensorData{
+                                                                total_in: KWH_PER_ANALOG_ELECTRICITY_ROTATION,
+                                                                total_out: None,
+                                                                power_curr: None,
+                                                            }).await;
+                                                        }
+                                                        _ => {}
+                                                    }
+                                                }
+                                                CommandToPiType::NewValueWithPayload {
+                                                    device_type,
+                                                    payload,
+                                                } => {
+                                                    match device_type {
+                                                        DeviceType::ElectricityDigital => {
+                                                            //data from electricity meter
+                                                            let DevicePayload::ElectricityDigital(
+                                                                cmd_payload,
+                                                            ) = payload;
+
+                                                            match cmd_payload {
+                                                                    ElectricityDigitalPayload::ReadingIn(value) => {
+                                                                        if last_digitial_electricity_reading.total_in > 0.0f64 {
+                                                                            //currently it is sending the value if the next value is read, maybe a better way possible
+                                                                            _ = tx.send(last_digitial_electricity_reading).await;
+                                                                            last_digitial_electricity_reading = api::SensorData {
+                                                                                total_in: 0.0,
+                                                                                total_out: None,
+                                                                                power_curr: None,
+                                                                            };
+                                                                        }
+                                                                        last_digitial_electricity_reading.total_in = value;
+                                                                    }
+                                                                    ElectricityDigitalPayload::ReadingOut(value) => {
+                                                                        last_digitial_electricity_reading.total_out = Option::from(value);
+                                                                    }
+                                                                    ElectricityDigitalPayload::PowerCurrent(value) => {
+                                                                        last_digitial_electricity_reading.power_curr = Option::from(value);
+                                                                    }
+                                                                }
+                                                        }
+                                                        _ => {}
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                //do stuff
+
                                 incoming_command_message.clear();
                             } else {
                                 incoming_command_message
@@ -65,8 +152,11 @@ async fn main() {
                     Err(ref e) if e.kind() == io::ErrorKind::TimedOut => {
                         ();
                     }
-                    Err(e) => {
-                        eprintln!("{:?}", e);
+                    Err(err) => {
+                        eprintln!("{:?}", err);
+                        if let Err(e) = db::add_log(&err.to_string(), &conn).await {
+                            eprintln!("{}", e.to_string())
+                        }
                     }
                 }
             }
@@ -184,7 +274,7 @@ async fn process_data(
         }
     };
 
-    match api::send_data_to_server(
+    return match api::send_data_to_server(
         consumption,
         outgoing,
         current,
@@ -199,7 +289,7 @@ async fn process_data(
                 .await
                 .unwrap_or(());
 
-            return true;
+            true
         }
         Err(err) => {
             println!("{:?}", err);
@@ -210,9 +300,9 @@ async fn process_data(
                 .await
                 .unwrap_or(());
 
-            return false;
+            false
         }
-    }
+    };
 }
 
 async fn save_sensor_value(

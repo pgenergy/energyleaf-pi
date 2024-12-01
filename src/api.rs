@@ -70,18 +70,11 @@ pub async fn send_data_to_server(
 ) -> Result<(), Error> {
     let mut buf = Vec::new();
     let timestamp_value = match timestamp {
-        Some(t) => {
-            let value = t.timestamp_nanos_opt();
-            match value {
-                Some(v) => Some(v as u64),
-                None => None,
-            }
-        }
+        Some(t) => Some(t.to_string()),
         None => None,
     };
-    _ = (energyleaf_proto::energyleaf::SensorDataRequestV2 {
+    _ = (energyleaf_proto::energyleaf::EnergyDataRequest {
         access_token: token.to_string(),
-        r#type: energyleaf_proto::energyleaf::SensorType::DigitalElectricity as i32,
         value: value_in,
         value_out,
         value_current,
